@@ -1,0 +1,40 @@
+cat:
+    visual:
+        True
+    path:
+      Cat1/texture/cat.npy
+    bbox:
+        - 0
+        - 463
+        - 1025
+        - 865
+    depth:
+        0.3
+
+bg:
+    visual:
+        True
+    path:
+        Cat1/texture/bg.npy
+    bbox:
+        - 0
+        - 681
+        - 1025
+        - 1024
+    depth:
+        0.29
+
+mouse:
+    visual:
+        True
+    path:
+        Cat1/texture/mouse.npy
+    bbox:
+        - 161
+        - 754
+        - 296
+        - 878
+    depth:
+        0.28
+
+
