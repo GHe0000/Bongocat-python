@@ -1,6 +1,8 @@
 import numpy as np
 
 # 常用变换矩阵
+
+# 缩放矩阵
 def scale(x, y, z):
     a = np.eye(4, dtype=np.float32)
     a[0, 0] = x
@@ -8,6 +10,7 @@ def scale(x, y, z):
     a[2, 2] = z
     return a
 
+# 旋转矩阵
 def rotate(r, axis: tuple):
     a = np.eye(4, dtype = np.float32)
     a[axis[0], axis[0]] = np.cos(r)
@@ -16,6 +19,7 @@ def rotate(r, axis: tuple):
     a[axis[1], axis[1]] = np.cos(r)
     return a
 
+# 平移矩阵
 def translate(x, y, z):
     a = np.eye(4, dtype = np.float32)
     a[3, 0] = x
@@ -23,6 +27,7 @@ def translate(x, y, z):
     a[3, 2] = z
     return a
 
+# 透视矩阵
 def perspective():
     a = np.eye(4, dtype = np.float32)
     a[2, 2] = 1 / 1000
@@ -31,6 +36,7 @@ def perspective():
     a[3, 3] = 0
     return a
 
+# 逆透视矩阵
 def inperspective():
     a = np.eye(4, dtype = np.float32)
     a[2, 2] = 0
@@ -39,6 +45,8 @@ def inperspective():
     a[3, 3] = 10
     return a
 
+# 平移后旋转后再反向平移
+# 此函数用于绕指定轴旋转
 def tran_and_rot(dx, dy, rot):
     view = perspective() @ translate(-dx, -dy, 0) @ inperspective()
     view = view @ translate(0, 0, -0.3)

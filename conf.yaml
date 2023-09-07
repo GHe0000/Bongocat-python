@@ -1,15 +1,15 @@
+# Bezier曲线绘制起始点 x,y
 bezier_start:
-# x,y
     [126,178]
 
+# Bezier曲线绘制结束点 x,y
 bezier_finish:
-# x,y
     [182,210]
 
 # 一些常数
 draw_constant:
-# 鼠标图层偏移，bezier粗细
-    [-100,50,2]
+# 鼠标图层偏移x,y，bezier粗细
+    [-100,50,4]
 
 # 测试用
 test_point:

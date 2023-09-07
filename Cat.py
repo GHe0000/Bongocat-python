@@ -66,7 +66,8 @@ def rander(init_yaml, key_yaml, conf_inf, psd_size=(354,612)):
     global key_inf
 
     t = threading.Thread(target=reload_thread,args=(conf_inf,))
-    t.setDaemon(True)
+    #t.setDaemon(True) 旧写法，已弃用
+    t.daemon = True
     t.start()
 
     model = scale(2/psd_size[0],2/psd_size[1],1) @ translate(-1,-1,0) @ rotate(-np.pi/2,axis=(0,1))
@@ -144,7 +145,10 @@ def draw_key():
 
 # ---------- 窗口生成 ----------
 window = None
-def init_window(v_size=(306,177)):
+hWindow = FindWindow("GLFW30","V")
+exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT
+
+def init_window(v_size=(612,354)):
     glfw.init()
     glfw.window_hint(glfw.DECORATED, False)
     glfw.window_hint(glfw.TRANSPARENT_FRAMEBUFFER, True)
@@ -156,7 +160,7 @@ def init_window(v_size=(306,177)):
     window = glfw.create_window(*v_size, "V", None, None)
     glfw.make_context_current(window)
     monitor_size = glfw.get_video_mode(glfw.get_primary_monitor()).size
-    glfw.set_window_pos(window, monitor_size.width - v_size[0], monitor_size.height - v_size[1] - 30)
+    glfw.set_window_pos(window, monitor_size.width - v_size[0], monitor_size.height - v_size[1] - 95)
     glViewport(0, 0, *v_size)
     glEnable(GL_BLEND)
     glEnable(GL_TEXTURE_2D)
@@ -272,13 +276,23 @@ def draw_bezier(curve):
         glVertex4f(*p)
     glEnd()
 
-src_points = np.array([[0, 0], [1359, 0], [1359, 767], [0, 767]])
+src_points = np.array([[0, 0], [2880, 0], [2880, 1800], [0, 1800]])
 dst_points = np.array([[254, 135], [212, 70], [187, 111],[232, 192]])
 M_custom = get_perspective_transform_matrix(src_points, dst_points)
 
+translucent = 0
 def get_pos_from_custom():
     global M_custom
+    global translucent
+    global hWindow
+    hWindow = FindWindow("GLFW30","V")
     custom_x, custom_y = win32api.GetCursorPos()
+    if custom_x >= (2880 - 612) and custom_x <= 2880 and (1800 - 354 -50) <= custom_y and custom_y <= (1800 - 50) and translucent == 0:
+        translucent = 1
+        SetLayeredWindowAttributes(hWindow,RGB(0,0,0),int(0.5*255),LWA_ALPHA)
+    elif (custom_x < (2880 - 612) or custom_x > 2880 or (1800 - 354 -50) > custom_y or custom_y > (1800 - 50)) and translucent == 1:
+        translucent = 0
+        SetLayeredWindowAttributes(hWindow,RGB(0,0,0),255,LWA_ALPHA)
     point = np.array([custom_x,custom_y, 1])
     new_point = np.dot(M_custom, point)
     X, Y, Z = new_point
