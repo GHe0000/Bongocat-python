@@ -17,7 +17,91 @@ from win32con import WS_EX_LAYERED,WS_EX_TRANSPARENT,GWL_EXSTYLE,LWA_ALPHA
 from win32gui import GetWindowLong,GetForegroundWindow,SetLayeredWindowAttributes,FindWindow
 
 # math_calc定义了常用的数学计算
-from math_calc import *
+#from math_calc import *
+
+# 常用变换矩阵
+
+# 缩放矩阵
+def scale(x, y, z):
+    a = np.eye(4, dtype=np.float32)
+    a[0, 0] = x
+    a[1, 1] = y
+    a[2, 2] = z
+    return a
+
+# 旋转矩阵
+def rotate(r, axis: tuple):
+    a = np.eye(4, dtype = np.float32)
+    a[axis[0], axis[0]] = np.cos(r)
+    a[axis[0], axis[1]] = np.sin(r)
+    a[axis[1], axis[0]] = - np.sin(r)
+    a[axis[1], axis[1]] = np.cos(r)
+    return a
+
+# 平移矩阵
+def translate(x, y, z):
+    a = np.eye(4, dtype = np.float32)
+    a[3, 0] = x
+    a[3, 1] = y
+    a[3, 2] = z
+    return a
+
+# 透视矩阵
+def perspective():
+    a = np.eye(4, dtype = np.float32)
+    a[2, 2] = 1 / 1000
+    a[3, 2] = -0.0001
+    a[2, 3] = 1
+    a[3, 3] = 0
+    return a
+
+# 逆透视矩阵
+def inperspective():
+    a = np.eye(4, dtype = np.float32)
+    a[2, 2] = 0
+    a[3, 2] = 1
+    a[2, 3] = -10000
+    a[3, 3] = 10
+    return a
+
+# 平移后旋转后再反向平移
+# 此函数用于绕指定轴旋转
+def tran_and_rot(dx, dy, rot):
+    view = perspective() @ translate(-dx, -dy, 0) @ inperspective()
+    view = view @ translate(0, 0, -0.3)
+    view = view @ rotate(rot[0], axis=(0, 2)) @ rotate(rot[1], axis=(2, 1)) @ rotate(rot[2], axis=(0, 1))
+    view = view @ translate(0,0,0.3)
+    view = view @ perspective() @ translate(dx, dy, 0) @ inperspective()
+    return view
+
+# 透视变换矩阵
+def get_perspective_transform_matrix(src_points, dst_points):
+    A = np.zeros((8, 8))
+    b = np.zeros((8, 1))
+
+    for i in range(4):
+        A[i * 2] = [src_points[i][0], src_points[i][1], 1, 0, 0, 0, -src_points[i][0] * dst_points[i][0], -src_points[i][1] * dst_points[i][0]]
+        A[i * 2 + 1] = [0, 0, 0, src_points[i][0], src_points[i][1], 1, -src_points[i][0] * dst_points[i][1], -src_points[i][1] * dst_points[i][1]]
+        b[i * 2] = dst_points[i][0]
+        b[i * 2 + 1] = dst_points[i][1]
+
+    h = np.linalg.solve(A, b)
+    h = np.append(h, [1])
+    transform_matrix = h.reshape((3, 3))
+    return transform_matrix
+
+# Bezier曲线生成
+def bezier_curve(control_points, n_points=100):
+    n = len(control_points) - 1
+    t = np.linspace(0, 1, n_points)
+    curve = np.zeros((n_points, 2))
+    # 预先计算并存储所有需要的二项式系数
+    binomials = [np.math.factorial(n) // (np.math.factorial(i) * np.math.factorial(n - i)) for i in range(n + 1)]
+    for i in range(n_points):
+        for j in range(n + 1):
+            curve[i] += binomials[j] * (1 - t[i]) ** (n - j) * t[i] ** j * control_points[j]
+    return curve
+
 
 # ---------- 图层类定义 ----------
 class Layer:
@@ -149,6 +233,7 @@ hWindow = FindWindow("GLFW30","V")
 exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT
 
 def init_window(v_size=(612,354)):
+    global move_up
     glfw.init()
     glfw.window_hint(glfw.DECORATED, False)
     glfw.window_hint(glfw.TRANSPARENT_FRAMEBUFFER, True)
@@ -160,7 +245,7 @@ def init_window(v_size=(612,354)):
     window = glfw.create_window(*v_size, "V", None, None)
     glfw.make_context_current(window)
     monitor_size = glfw.get_video_mode(glfw.get_primary_monitor()).size
-    glfw.set_window_pos(window, monitor_size.width - v_size[0], monitor_size.height - v_size[1] - 95)
+    glfw.set_window_pos(window, monitor_size.width - v_size[0], monitor_size.height - v_size[1] - move_up[0])
     glViewport(0, 0, *v_size)
     glEnable(GL_BLEND)
     glEnable(GL_TEXTURE_2D)
@@ -175,6 +260,7 @@ def reload_thread(path):
     global bezier_finish
     global draw_constant
     global test_point
+    global move_up
     logging.warning("Reloading...")
     while True:
         try:
@@ -184,6 +270,7 @@ def reload_thread(path):
                 bezier_finish = conf_inf["bezier_finish"]
                 draw_constant = conf_inf["draw_constant"]
                 test_point = conf_inf["test_point"]
+                move_up = conf_inf["move_up"]
         except Exception as error:
             logging.exception(error)
         time.sleep(1)
@@ -276,7 +363,14 @@ def draw_bezier(curve):
         glVertex4f(*p)
     glEnd()
 
-src_points = np.array([[0, 0], [2880, 0], [2880, 1800], [0, 1800]])
+from win32 import win32api, win32gui, win32print
+from win32.lib import win32con
+
+hDC = win32gui.GetDC(0)
+monitor_width = win32print.GetDeviceCaps(hDC, win32con.DESKTOPHORZRES)
+monitor_heigt= win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
+
+src_points = np.array([[0, 0], [monitor_width, 0], [monitor_width, monitor_heigt], [0, monitor_width]])
 dst_points = np.array([[254, 135], [212, 70], [187, 111],[232, 192]])
 M_custom = get_perspective_transform_matrix(src_points, dst_points)
 
@@ -285,12 +379,13 @@ def get_pos_from_custom():
     global M_custom
     global translucent
     global hWindow
+    global move_up
     hWindow = FindWindow("GLFW30","V")
     custom_x, custom_y = win32api.GetCursorPos()
-    if custom_x >= (2880 - 612) and custom_x <= 2880 and (1800 - 354 -50) <= custom_y and custom_y <= (1800 - 50) and translucent == 0:
+    if custom_x >= (monitor_width - 612) and custom_x <= monitor_width and (monitor_heigt- 354 - move_up[0]) <= custom_y and custom_y <= (monitor_heigt - move_up[0]) and translucent == 0:
         translucent = 1
-        SetLayeredWindowAttributes(hWindow,RGB(0,0,0),int(0.5*255),LWA_ALPHA)
-    elif (custom_x < (2880 - 612) or custom_x > 2880 or (1800 - 354 -50) > custom_y or custom_y > (1800 - 50)) and translucent == 1:
+        SetLayeredWindowAttributes(hWindow,RGB(0,0,0),int(move_up[1]*255),LWA_ALPHA)
+    elif (custom_x < (monitor_width - 612) or custom_x > monitor_width or (monitor_heigt - 354 - move_up[0]) > custom_y or custom_y > (monitor_heigt - move_up[0])) and translucent == 1:
         translucent = 0
         SetLayeredWindowAttributes(hWindow,RGB(0,0,0),255,LWA_ALPHA)
     point = np.array([custom_x,custom_y, 1])

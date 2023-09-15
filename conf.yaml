@@ -15,3 +15,7 @@ draw_constant:
 test_point:
 # x,y
     [126,176]
+
+move_up:
+# 上移距离，透明度
+    [85,0.5]
