@@ -1,0 +1,26 @@
+cat:
+    path:
+        Cat2/texture/cat.npy
+    bbox:
+        - 67
+        - 171
+        - 230
+        - 412
+
+bg:
+    path:
+        Cat2/texture/bg.npy
+    bbox:
+        - 162
+        - 0
+        - 354
+        - 605
+
+mouse:
+    path:
+        Cat2/texture/mouse.npy
+    bbox:
+        - 203
+        - 124
+        - 246
+        - 173
